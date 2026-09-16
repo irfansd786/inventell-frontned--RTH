@@ -1,0 +1,153 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Global design tokens — Enterprise 6-color semantic system.
+   Slate (70%), Emerald (12%), Blue (7%), Amber (5%), Red (4%), Indigo (2%). */
+@layer base {
+  :root {
+    --background: #f8fafc;
+    --background-soft: #f1f5f9;
+    --surface: #ffffff;
+    --surface-hover: #f8fafc;
+    --surface-secondary: #f1f5f9;
+    --surface-tertiary: #e2e8f0;
+    --border: #e2e8f0;
+    --border-strong: #cbd5e1;
+    --text-primary: #0f172a;
+    --text-secondary: #475569;
+    --text-muted: #64748b;
+    --text-disabled: #94a3b8;
+
+    --color-background: #ffffff;
+    --color-background-soft: #f8fafc;
+    --color-surface: #ffffff;
+    --color-primary-text: #0f172a;
+    --color-secondary-text: #475569;
+    --color-muted-text: #64748b;
+    --color-primary: #059669;
+    --color-primary-dark: #047857;
+    --color-success: #059669;
+    --color-info: #2563eb;
+    --color-warning: #d97706;
+    --color-danger: #dc2626;
+    --color-ai: #4f46e5;
+    --color-border: #e2e8f0;
+    --color-sidebar: #0f172a;
+    --color-sidebar-hover: #1e293b;
+  }
+
+  .dark {
+    --background: #0b0f19;
+    --background-soft: #0f172a;
+    --surface: #111827;
+    --surface-hover: #1f2937;
+    --surface-secondary: #1e293b;
+    --surface-tertiary: #334155;
+    --border: #1f2937;
+    --border-strong: #334155;
+    --text-primary: #f8fafc;
+    --text-secondary: #cbd5e1;
+    --text-muted: #94a3b8;
+    --text-disabled: #64748b;
+
+    --color-background: #0b0f19;
+    --color-background-soft: #0f172a;
+    --color-surface: #111827;
+    --color-primary-text: #f8fafc;
+    --color-secondary-text: #cbd5e1;
+    --color-muted-text: #94a3b8;
+    --color-primary: #10b981;
+    --color-primary-dark: #059669;
+    --color-success: #10b981;
+    --color-info: #3b82f6;
+    --color-warning: #f59e0b;
+    --color-danger: #ef4444;
+    --color-ai: #6366f1;
+    --color-border: #1f2937;
+    --color-sidebar: #020617;
+    --color-sidebar-hover: #1e293b;
+  }
+
+  html {
+    /* Global density: 14px root scales the entire website (rem-based
+       Tailwind spacing/typography) to a compact enterprise density. */
+    font-size: 14px;
+    transition: background-color 0.15s ease, color 0.15s ease;
+  }
+
+  @media (min-width: 1536px) {
+    html {
+      font-size: 14.5px;
+    }
+  }
+
+  body {
+    background-color: var(--background);
+    color: var(--text-primary);
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+
+  select option {
+    background-color: var(--surface);
+    color: var(--text-primary);
+  }
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+
+.dark ::-webkit-scrollbar-track {
+  background: #0f172a;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: #334155;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Pulse animation for live camera dot */
+@keyframes pulse-ring {
+  0% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.6);
+  }
+  70% {
+    transform: scale(1);
+    box-shadow: 0 0 0 8px rgba(220, 38, 38, 0);
+  }
+  100% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(220, 38, 38, 0);
+  }
+}
+
+.live-badge-pulse {
+  animation: pulse-ring 2s infinite;
+}
+
+/* Sidebar collapse transition */
+.sidebar-shell {
+  transition: width 0.25s ease-in-out, transform 0.25s ease-in-out;
+}
+
+.main-shell {
+  transition: padding-left 0.25s ease-in-out;
+}
