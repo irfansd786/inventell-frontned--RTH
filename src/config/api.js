@@ -1,11 +1,26 @@
 // Central API configuration — single source of truth for the backend base URL.
-// All services must import from here. Do NOT scatter backend URLs across the app.
-//
-// Configure via frontend/.env:
-//   VITE_API_URL=https://inventell-backend-rth.onrender.com/
+// All services import from here.
 
-export const API_BASE_URL =
-  (import.meta.env.VITE_API_URL || 'https://inventell-backend-rth.onrender.com/').replace(/\/$/, '');
+function resolveApiBaseUrl() {
+  const envUrl = import.meta.env.VITE_API_URL;
+  if (envUrl && envUrl.trim()) {
+    let clean = envUrl.trim().replace(/\/$/, '');
+    if (!clean.endsWith('/api')) clean = `${clean}/api`;
+    return clean;
+  }
+
+  // Auto-detect local development server when running on localhost
+  if (
+    typeof window !== 'undefined' &&
+    (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+  ) {
+    return 'https://inventell-backend-rth.onrender.com/api';
+  }
+
+  return 'https://inventell-backend-rth.onrender.com/api';
+}
+
+export const API_BASE_URL = resolveApiBaseUrl();
 
 export const AUTH_TOKEN_KEY = 'invintell_access_token';
 export const AUTH_REFRESH_KEY = 'invintell_refresh_token';

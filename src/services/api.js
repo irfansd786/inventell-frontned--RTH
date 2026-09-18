@@ -1,32 +1,44 @@
-// Centralized HTTP client for the FastAPI backend.
+// Centralized HTTP client for the FastAPI backend with timeout & caching.
 // All domain services import { apiGet, apiPost, apiPut, apiDelete } from here.
-//
-// Auth: JWT access token from localStorage (see config/api.js) is attached
-// automatically. On 401 the session is NOT silently mocked — callers surface
-// the error and AuthProvider redirects to /login.
 
 import { auth } from '../config/firebase';
 import { API_BASE_URL, AUTH_TOKEN_KEY, AUTH_USER_KEY, setAuthTokens } from '../config/api';
 
+const memoryCache = new Map();
+const CACHE_TTL_MS = 60 * 1000; // 1 minute in-memory cache
+
+export function buildFullUrl(endpoint) {
+  let ep = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+  if (ep.startsWith('/api/')) {
+    ep = ep.substring(4); // strip redundant leading /api
+  }
+  return `${API_BASE_URL}${ep}`;
+}
+
+async function getFirebaseTokenWithTimeout(timeoutMs = 1500) {
+  if (!auth?.currentUser) return null;
+  try {
+    const tokenPromise = auth.currentUser.getIdToken();
+    const timeoutPromise = new Promise((res) => setTimeout(() => res(null), timeoutMs));
+    return await Promise.race([tokenPromise, timeoutPromise]);
+  } catch {
+    return null;
+  }
+}
+
 async function buildHeaders(extra = {}, authEnabled = true) {
   const headers = { 'Content-Type': 'application/json', ...extra };
   if (authEnabled) {
-    try {
-      if (auth?.currentUser) {
-        const token = await auth.currentUser.getIdToken();
-        if (token) {
-          setAuthTokens({ accessToken: token });
-          headers.Authorization = `Bearer ${token}`;
-          return headers;
-        }
-      }
-    } catch {
-      /* fallback to stored token */
+    const freshToken = await getFirebaseTokenWithTimeout(1500);
+    if (freshToken) {
+      setAuthTokens({ accessToken: freshToken });
+      headers.Authorization = `Bearer ${freshToken}`;
+      return headers;
     }
 
     try {
-      const token = localStorage.getItem(AUTH_TOKEN_KEY);
-      if (token) headers.Authorization = `Bearer ${token}`;
+      const storedToken = localStorage.getItem(AUTH_TOKEN_KEY);
+      if (storedToken) headers.Authorization = `Bearer ${storedToken}`;
     } catch {
       /* ignore */
     }
@@ -43,21 +55,49 @@ export class ApiError extends Error {
   }
 }
 
-export async function request(endpoint, { method = 'GET', body, headers, auth = true } = {}) {
+export async function request(
+  endpoint,
+  { method = 'GET', body, headers, auth = true, timeout = 5000, cache = false } = {}
+) {
+  const fullUrl = buildFullUrl(endpoint);
+  const cacheKey = `${method}:${fullUrl}`;
+
+  // Serve fast from cache if enabled
+  if (cache && method === 'GET' && memoryCache.has(cacheKey)) {
+    const cached = memoryCache.get(cacheKey);
+    if (Date.now() - cached.timestamp < CACHE_TTL_MS) {
+      return cached.data;
+    }
+  }
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeout);
+
   let response;
   try {
     const resolvedHeaders = await buildHeaders(headers, auth);
-    response = await fetch(`${API_BASE_URL}${endpoint}`, {
+    response = await fetch(fullUrl, {
       method,
       headers: resolvedHeaders,
       body: typeof body === 'string' ? body : body !== undefined ? JSON.stringify(body) : undefined,
+      signal: controller.signal,
     });
-  } catch {
-    throw new ApiError(`Unable to reach the backend at ${API_BASE_URL}.`, 0, null);
+  } catch (err) {
+    clearTimeout(timer);
+    // On failure/timeout, return cached version if available
+    if (method === 'GET' && memoryCache.has(cacheKey)) {
+      return memoryCache.get(cacheKey).data;
+    }
+    const isTimeout = err.name === 'AbortError';
+    const msg = isTimeout
+      ? `Request to ${endpoint} timed out after ${timeout}ms.`
+      : `Unable to reach the backend at ${API_BASE_URL}.`;
+    throw new ApiError(msg, isTimeout ? 408 : 0, null);
+  } finally {
+    clearTimeout(timer);
   }
 
   if (response.status === 401) {
-    // Session expired/invalid — clear local auth so ProtectedRoute redirects.
     try {
       localStorage.removeItem(AUTH_TOKEN_KEY);
       localStorage.removeItem(AUTH_USER_KEY);
@@ -75,13 +115,19 @@ export async function request(endpoint, { method = 'GET', body, headers, auth = 
   }
 
   if (!response.ok) {
-    const detail =
-      data?.detail || data?.message || `Request failed (${response.status})`;
+    const detail = data?.detail || data?.message || `Request failed (${response.status})`;
     throw new ApiError(typeof detail === 'string' ? detail : 'Request failed.', response.status, data);
   }
+
+  // Cache successful GET responses
+  if (method === 'GET' && data !== null) {
+    memoryCache.set(cacheKey, { data, timestamp: Date.now() });
+  }
+
   return data;
 }
-export const apiGet = (endpoint, opts) => request(endpoint, { ...opts, method: 'GET' });
+
+export const apiGet = (endpoint, opts) => request(endpoint, { ...opts, method: 'GET', cache: opts?.cache ?? true });
 export const apiPost = (endpoint, body, opts) => request(endpoint, { ...opts, method: 'POST', body });
 export const apiPut = (endpoint, body, opts) => request(endpoint, { ...opts, method: 'PUT', body });
 export const apiPatch = (endpoint, body, opts) => request(endpoint, { ...opts, method: 'PATCH', body });

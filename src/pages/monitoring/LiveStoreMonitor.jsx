@@ -167,6 +167,7 @@ export default function LiveStoreMonitor() {
   const boot = useCallback(async () => {
     setBootLoading(true);
     setBackendError('');
+    const timer = setTimeout(() => setBootLoading(false), 2000);
     try {
       const v = await listVideos();
       const items = v.items || [];
@@ -179,6 +180,7 @@ export default function LiveStoreMonitor() {
     } catch {
       setBackendError('Computer Vision Engine Unavailable — the backend could not be reached.');
     } finally {
+      clearTimeout(timer);
       setBootLoading(false);
     }
   }, [ensureStarted, patchCam, refreshSlow]);

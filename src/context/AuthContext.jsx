@@ -37,8 +37,8 @@ export function AuthProvider({ children }) {
   const fetchProfile = useCallback(async (fbUser) => {
     if (!fbUser) return null;
     try {
-      // Backend profile endpoint: GET /api/staff/me
-      const data = await apiGet('/staff/me');
+      // Backend profile endpoint: GET /api/staff/me with short timeout
+      const data = await apiGet('/staff/me', { timeout: 2500, cache: true });
       if (data && data.uid) {
         try {
           localStorage.setItem(CACHED_PROFILE_KEY, JSON.stringify(data));
@@ -81,34 +81,53 @@ export function AuthProvider({ children }) {
   // Listen to Firebase Authentication state changes (source of truth)
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
-      setLoading(true);
       if (fbUser) {
+        setUser(fbUser);
+
+        // Immediate cache resolution so UI unlocks in 0ms
+        const cached = readStoredProfile();
+        if (cached && (cached.uid === fbUser.uid || cached.email?.toLowerCase() === fbUser.email?.toLowerCase())) {
+          setProfile(cached);
+          setLoading(false);
+        } else {
+          // Fallback profile preview while fetching
+          const isAdminEmail = fbUser.email?.toLowerCase() === 'admin@invintell.com';
+          const quickProfile = {
+            uid: fbUser.uid,
+            name: fbUser.displayName || (isAdminEmail ? 'System Administrator' : fbUser.email?.split('@')[0] || 'Employee'),
+            email: fbUser.email,
+            role: isAdminEmail ? 'admin' : 'employee',
+            status: 'active',
+            assigned_modules: isAdminEmail ? ALL_PERMISSION_IDS : ['inventory', 'orders', 'picking'],
+          };
+          setProfile(quickProfile);
+          setLoading(false);
+        }
+
+        // Background profile sync
         try {
-          const token = await fbUser.getIdToken();
-          setAuthTokens({ accessToken: token });
-          setUser(fbUser);
-
           const prof = await fetchProfile(fbUser);
-
-          // Inactive user guard: immediately sign out and reject access
-          if (prof && prof.status === 'inactive') {
-            await signOut(auth);
-            clearAuthTokens();
-            setUser(null);
-            setProfile(null);
-            try {
-              localStorage.removeItem(CACHED_PROFILE_KEY);
-            } catch {
-              /* ignore */
+          if (prof) {
+            if (prof.status === 'inactive') {
+              await signOut(auth);
+              clearAuthTokens();
+              setUser(null);
+              setProfile(null);
+              try {
+                localStorage.removeItem(CACHED_PROFILE_KEY);
+              } catch {
+                /* ignore */
+              }
+              setAuthError('Your account is currently inactive. Please contact your administrator.');
+              setLoading(false);
+              return;
             }
-            setAuthError('Your account is currently inactive. Please contact your administrator.');
-            setLoading(false);
-            return;
+            setProfile(prof);
           }
-
-          setProfile(prof);
         } catch {
-          // Token or profile resolution issue
+          /* background refresh failed, keep cached/quick profile */
+        } finally {
+          setLoading(false);
         }
       } else {
         setUser(null);
@@ -119,8 +138,8 @@ export function AuthProvider({ children }) {
         } catch {
           /* ignore */
         }
+        setLoading(false);
       }
-      setLoading(false);
     });
 
     return () => unsubscribe();
