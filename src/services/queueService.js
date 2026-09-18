@@ -4,7 +4,7 @@ import { apiGet, apiPost } from './api';
 export async function getQueueAnalyticsData(cameraId = 'camera_01', timestamp = 0.0, threshold = null) {
   try {
     const thresholdQuery = threshold ? `&threshold=${threshold}` : '';
-    const data = await apiGet(`/analytics/queue?camera_id=${cameraId}&timestamp=${timestamp}${thresholdQuery}`);
+    const data = await apiGet(`/api/analytics/queue?camera_id=${cameraId}&timestamp=${timestamp}${thresholdQuery}`);
     const isConnected = data?.connected !== false;
 
     return {
@@ -114,12 +114,16 @@ export async function getQueueAnalyticsData(cameraId = 'camera_01', timestamp = 
   }
 }
 
+export async function getQueueIntelligenceData(cameraId = 'camera_01', timestamp = 0.0) {
+  return apiGet(`/api/analytics/queue-intelligence?camera_id=${cameraId}&timestamp=${timestamp}`);
+}
+
 export async function getQueueSettings() {
-  return apiGet('/analytics/queue/settings');
+  return apiGet('/api/analytics/queue/settings');
 }
 
 export async function saveQueueSettings(settings) {
-  return apiPost('/analytics/queue/settings', settings);
+  return apiPost('/api/analytics/queue/settings', settings);
 }
 
 export async function getQueueAlertsHistory({ camera = '', status = '', severity = '', limit = 30 } = {}) {
@@ -128,9 +132,9 @@ export async function getQueueAlertsHistory({ camera = '', status = '', severity
   if (status && status !== 'ALL') params.append('status', status);
   if (severity && severity !== 'ALL') params.append('severity', severity);
   params.append('limit', limit);
-  return apiGet(`/analytics/queue/alerts?${params.toString()}`);
+  return apiGet(`/api/analytics/queue/alerts?${params.toString()}`);
 }
 
 export async function recordQueueAlertAction(alertId, action, notes = '') {
-  return apiPost(`/analytics/queue/alerts/${alertId || 0}/action`, { action, notes });
+  return apiPost(`/api/analytics/queue/alerts/${alertId || 0}/action`, { action, notes });
 }

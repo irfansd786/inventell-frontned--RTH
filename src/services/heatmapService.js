@@ -18,7 +18,7 @@ export async function getHeatmapData({
   if (windowStart != null) query.append('window_start', String(windowStart));
   if (windowEnd != null) query.append('window_end', String(windowEnd));
 
-  return apiGet(`/analytics/heatmap/combined?${query.toString()}`);
+  return apiGet(`/api/analytics/heatmap/combined?${query.toString()}`);
 }
 
 export function exportHeatmapReport(data, { period = 'Today', metric = 'Traffic Density' } = {}) {

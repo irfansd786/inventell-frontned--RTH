@@ -14,7 +14,7 @@ function normalizeInsight(item = {}, idx = 0) {
 export const analyticsService = {
   getKPIs: async () => {
     try {
-      const data = await apiGet('/analytics/kpis');
+      const data = await apiGet('/api/analytics/kpis');
       const d = data && typeof data === 'object' ? data : {};
       // Map to the shape expected by Analytics.jsx
       return {
@@ -44,7 +44,7 @@ export const analyticsService = {
   },
   getRevenueTrend: async (days = 30) => {
     try {
-      const raw = await apiGet(`/analytics/revenue-trend?days=${days}`);
+      const raw = await apiGet(`/api/analytics/revenue-trend?days=${days}`);
       const list = Array.isArray(raw) ? raw : raw?.points || raw?.data || raw?.items || [];
       return Array.isArray(list) ? list : [];
     } catch {
@@ -79,7 +79,7 @@ export const analyticsService = {
   },
   getCategoryPerformance: async () => {
     try {
-      const cats = await apiGet('/analytics/category-performance');
+      const cats = await apiGet('/api/analytics/category-performance');
       const list = Array.isArray(cats) ? cats : cats?.items || cats?.data || [];
       const colors = ['#10B981', '#3B82F6', '#8B5CF6', '#F59E0B', '#EC4899'];
       return (list || []).map((c, i) => ({
@@ -130,7 +130,7 @@ export const analyticsService = {
   },
   getKeyInsights: async () => {
     try {
-      const raw = await apiGet('/analytics/key-insights');
+      const raw = await apiGet('/api/analytics/key-insights');
       const list = Array.isArray(raw) ? raw : raw?.items || raw?.insights || raw?.data || [];
       if (!Array.isArray(list) || list.length === 0) return analyticsKeyInsights;
       return list.map(normalizeInsight);

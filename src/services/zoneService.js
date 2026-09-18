@@ -16,7 +16,7 @@ export async function getZoneAnalyticsData({
   if (windowStart != null) query.append('window_start', String(windowStart));
   if (windowEnd != null) query.append('window_end', String(windowEnd));
 
-  return apiGet(`/analytics/zones/combined?${query.toString()}`);
+  return apiGet(`/api/analytics/zones/combined?${query.toString()}`);
 }
 
 export function exportZonesReport(data, { period = 'Today' } = {}) {

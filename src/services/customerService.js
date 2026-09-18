@@ -1,5 +1,5 @@
 // Customer Analytics service — CustomerAnalytics.jsx -> FastAPI ONLY.
-// Source of truth: GET /analytics/customers/combined (BOTH cameras:
+// Source of truth: GET /api/analytics/customers/combined (BOTH cameras:
 // camera_01 + camera_02 tracking merged server-side with per-camera
 // namespaced track IDs — no cross-camera identity matching is claimed).
 // No fake data, no randomness, no static customer arrays, no camera switching.
@@ -46,7 +46,7 @@ export async function getCustomerAnalyticsData({
   windowEnd = null,
 } = {}) {
   const q = buildQuery({ timestamp, period, granularity, camera, zone, compare, windowStart, windowEnd });
-  return apiGet(`/analytics/customers/combined?${q}`);
+  return apiGet(`/api/analytics/customers/combined?${q}`);
 }
 
 /**

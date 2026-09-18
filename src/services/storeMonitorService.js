@@ -77,7 +77,7 @@ export async function getSummary(t1 = 0, t2 = 0) {
 }
 
 export async function getQueue(cameraId, timestamp) {
-  return apiGet(`/analytics/queue?camera_id=${cameraId}&timestamp=${timestamp}`, { cache: false });
+  return apiGet(`/api/analytics/queue?camera_id=${cameraId}&timestamp=${timestamp}`, { cache: false });
 }
 
 export async function getSession(cameraId, timestamp) {

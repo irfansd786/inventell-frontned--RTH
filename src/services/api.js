@@ -9,10 +9,14 @@ const CACHE_TTL_MS = 60 * 1000; // 1 minute in-memory cache
 
 export function buildFullUrl(endpoint) {
   let ep = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
-  if (ep.startsWith('/api/')) {
-    ep = ep.substring(4); // strip redundant leading /api
+  let base = API_BASE_URL.replace(/\/$/, '');
+
+  if (base.endsWith('/api') && ep.startsWith('/api/')) {
+    ep = ep.substring(4); // Avoid duplicate /api/api when base already includes /api
+  } else if (!base.endsWith('/api') && !ep.startsWith('/api/')) {
+    ep = `/api${ep}`; // Ensure /api prefix if base does not end with /api
   }
-  return `${API_BASE_URL}${ep}`;
+  return `${base}${ep}`;
 }
 
 async function getFirebaseTokenWithTimeout(timeoutMs = 1500) {

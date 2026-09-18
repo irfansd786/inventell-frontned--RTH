@@ -3,7 +3,7 @@ import { apiGet, apiPost } from './api';
 
 export async function getShelfIntelligenceData(cameraId = 'camera_01', timestamp = 0.0) {
   try {
-    const data = await apiGet(`/analytics/shelf?camera_id=${cameraId}&timestamp=${timestamp}`);
+    const data = await apiGet(`/api/analytics/shelf?camera_id=${cameraId}&timestamp=${timestamp}`);
     const isConnected = data?.connected !== false;
 
     return {
