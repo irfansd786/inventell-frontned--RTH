@@ -2,10 +2,10 @@
 // All services must import from here. Do NOT scatter backend URLs across the app.
 //
 // Configure via frontend/.env:
-//   VITE_API_URL=http://localhost:8000/api
+//   VITE_API_URL=https://inventell-backend-rth.onrender.com/
 
 export const API_BASE_URL =
-  (import.meta.env.VITE_API_URL || 'http://localhost:8000/api').replace(/\/$/, '');
+  (import.meta.env.VITE_API_URL || 'https://inventell-backend-rth.onrender.com/').replace(/\/$/, '');
 
 export const AUTH_TOKEN_KEY = 'invintell_access_token';
 export const AUTH_REFRESH_KEY = 'invintell_refresh_token';
