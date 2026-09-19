@@ -159,7 +159,7 @@ export default function LiveStoreMonitor() {
     timeRef.current[id] = t;
     patchCam(id, { time: t, duration: dur || 0 });
     const now = Date.now();
-    if (immediate || now - lastFast.current[id] > 500) {
+    if (immediate || now - lastFast.current[id] > 1000) {
       lastFast.current[id] = now;
       refreshFast(id, t);
     }

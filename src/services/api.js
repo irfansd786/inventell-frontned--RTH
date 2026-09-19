@@ -73,7 +73,7 @@ export class ApiError extends Error {
 
 export async function request(
   endpoint,
-  { method = 'GET', body, headers, auth = true, timeout = 20000, cache = false } = {}
+  { method = 'GET', body, headers, auth = true, timeout = 35000, cache = false } = {}
 ) {
   const fullUrl = buildFullUrl(endpoint);
   const cacheKey = `${method}:${fullUrl}`;
