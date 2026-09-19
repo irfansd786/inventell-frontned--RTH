@@ -26,6 +26,41 @@ import {
 
 const PRODUCT_COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#8b5cf6', '#ef4444', '#06b6d4'];
 
+class WebGLErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false };
+  }
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+  componentDidCatch(error) {
+    console.warn('3D Digital Twin WebGL Error (Switching to 2D):', error);
+  }
+  render() {
+    if (this.state.hasError) {
+      return this.props.fallback;
+    }
+    return this.props.children;
+  }
+}
+
+function ContextLossListener({ onContextLost }) {
+  const { gl } = useThree();
+  React.useEffect(() => {
+    if (!gl?.domElement) return;
+    const canvas = gl.domElement;
+    const handleLost = (e) => {
+      e.preventDefault();
+      console.warn('WebGL context lost detected, switching to 2D view');
+      onContextLost?.();
+    };
+    canvas.addEventListener('webglcontextlost', handleLost);
+    return () => canvas.removeEventListener('webglcontextlost', handleLost);
+  }, [gl, onContextLost]);
+  return null;
+}
+
 // ---------- camera controller for Upside (Top-Down) vs Angled 3D ----------
 function CameraController({ cameraMode, controlsRef }) {
   const { camera } = useThree();
@@ -135,11 +170,12 @@ function PersonMarker({ person, selected, dark, labelLift, onSelect }) {
 function ZoneOverlay({ zone, dark }) {
   const mat = useRef(null);
   const base = zoneStatusColor(zone.status, dark);
-  useFrame(({ clock }) => {
+  useFrame((state) => {
     if (!mat.current) return;
     const active = zone.status === 'busy' || zone.status === 'critical' || zone.status === 'crowded';
+    const elapsed = state?.clock?.getElapsedTime ? state.clock.getElapsedTime() : performance.now() * 0.001;
     mat.current.opacity = active
-      ? 0.22 + 0.1 * Math.sin(clock.elapsedTime * 2.4)
+      ? 0.22 + 0.1 * Math.sin(elapsed * 2.4)
       : 0.14;
   });
   const y = 0.02;
@@ -610,38 +646,55 @@ export default function Store3DView({
             connected={connected}
           />
         ) : (
-          <Canvas dpr={[1, 1.75]} camera={{ position: [0, 17, 0.001], fov: 46 }} gl={{ antialias: true }}>
-            <color attach="background" args={[dark ? '#070f22' : '#e8eef6']} />
-            <ambientLight intensity={1.15} />
-            <directionalLight position={[10, 24, 8]} intensity={1.3} />
-            <directionalLight position={[-10, 24, -8]} intensity={0.7} />
-            <CameraController cameraMode={cameraMode} controlsRef={controlsRef} />
-            <StoreShell dark={dark} merged={merged} />
-            <GateBanners />
-            {merged.map((z) => (
-              <ZoneOverlay key={z.id} zone={z} dark={dark} />
-            ))}
-            {personsOnly.map((p, i) => (
-              <PersonMarker
-                key={p.id}
-                person={p}
-                selected={String(selectedId) === String(p.id)}
-                dark={dark}
-                labelLift={(i % 3) * 0.35}
-                onSelect={onSelectPerson}
+          <WebGLErrorBoundary
+            fallback={
+              <StoreMapView
+                zones={zones}
+                people={personsOnly}
+                selectedId={selectedId}
+                onSelectPerson={onSelectPerson}
+                connected={connected}
               />
-            ))}
-            <OrbitControls
-              ref={controlsRef}
-              makeDefault
-              enableDamping
-              dampingFactor={0.12}
-              minDistance={4}
-              maxDistance={35}
-              maxPolarAngle={Math.PI / 2.05}
-              target={[0, 0, 0]}
-            />
-          </Canvas>
+            }
+          >
+            <Canvas
+              dpr={[1, 1.5]}
+              camera={{ position: [0, 17, 0.001], fov: 46 }}
+              gl={{ antialias: true, powerPreference: 'default', preserveDrawingBuffer: false, failIfMajorPerformanceCaveat: false }}
+            >
+              <ContextLossListener onContextLost={() => setView('2d')} />
+              <color attach="background" args={[dark ? '#070f22' : '#e8eef6']} />
+              <ambientLight intensity={1.15} />
+              <directionalLight position={[10, 24, 8]} intensity={1.3} />
+              <directionalLight position={[-10, 24, -8]} intensity={0.7} />
+              <CameraController cameraMode={cameraMode} controlsRef={controlsRef} />
+              <StoreShell dark={dark} merged={merged} />
+              <GateBanners />
+              {merged.map((z) => (
+                <ZoneOverlay key={z.id} zone={z} dark={dark} />
+              ))}
+              {personsOnly.map((p, i) => (
+                <PersonMarker
+                  key={p.id}
+                  person={p}
+                  selected={String(selectedId) === String(p.id)}
+                  dark={dark}
+                  labelLift={(i % 3) * 0.35}
+                  onSelect={onSelectPerson}
+                />
+              ))}
+              <OrbitControls
+                ref={controlsRef}
+                makeDefault
+                enableDamping
+                dampingFactor={0.12}
+                minDistance={4}
+                maxDistance={35}
+                maxPolarAngle={Math.PI / 2.05}
+                target={[0, 0, 0]}
+              />
+            </Canvas>
+          </WebGLErrorBoundary>
         )}
 
         {/* Connection status overlay */}

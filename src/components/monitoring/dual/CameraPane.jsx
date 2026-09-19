@@ -16,7 +16,7 @@ const SPEEDS = [0.5, 1, 1.5, 2];
 function stateOf(cam) {
   if (!cam.video) return { tone: 'red', text: 'OFFLINE' };
   const st = cam.status?.state;
-  if (st === 'ready') return { tone: 'green', text: 'ONLINE' };
+  if (st === 'ready' || cam.connected || (cam.people && cam.people.length > 0)) return { tone: 'green', text: 'ONLINE' };
   if (st === 'processing') return { tone: 'blue', text: 'PROCESSING' };
   if (st === 'error') return { tone: 'red', text: 'ERROR' };
   return { tone: 'amber', text: 'STANDBY' };
@@ -126,26 +126,78 @@ export default function CameraPane({
       </div>
 
       {/* video + overlay */}
-      <div className="relative bg-black flex items-center justify-center min-h-[300px] flex-1">
+      <div className="relative bg-black flex items-center justify-center min-h-[300px] flex-1 overflow-hidden">
         {cam.video ? (
-          <video
-            key={cam.id}
-            ref={videoRef}
-            src={streamUrl(cam.id)}
-            className="w-full h-full object-contain aspect-video"
-            playsInline
-            muted={muted}
-            loop
-            autoPlay
-            onTimeUpdate={(e) => onTime(cam.id, e.target.currentTime || 0, e.target.duration || 0)}
-            onSeeked={(e) => onTime(cam.id, e.target.currentTime || 0, e.target.duration || 0)}
-            onLoadedMetadata={(e) => {
-              e.target.playbackRate = speed;
-              onTime(cam.id, e.target.currentTime || 0, e.target.duration || 0, true);
-            }}
-            onPlay={() => setPlaying(true)}
-            onPause={() => setPlaying(false)}
-          />
+          <div className="relative w-full aspect-video flex items-center justify-center">
+            <video
+              key={cam.id}
+              ref={videoRef}
+              src={streamUrl(cam.id)}
+              className="w-full h-full object-contain aspect-video"
+              playsInline
+              muted={muted}
+              loop
+              autoPlay
+              onTimeUpdate={(e) => onTime(cam.id, e.target.currentTime || 0, e.target.duration || 0)}
+              onSeeked={(e) => onTime(cam.id, e.target.currentTime || 0, e.target.duration || 0)}
+              onLoadedMetadata={(e) => {
+                e.target.playbackRate = speed;
+                onTime(cam.id, e.target.currentTime || 0, e.target.duration || 0, true);
+              }}
+              onPlay={() => setPlaying(true)}
+              onPause={() => setPlaying(false)}
+            />
+
+            {/* backend person boxes */}
+            {(people || []).map((p) => {
+              const fw = p.frame?.width || 0;
+              const fh = p.frame?.height || 0;
+              const bbox = Array.isArray(p.bbox) && p.bbox.length === 4 ? p.bbox : null;
+              if (!bbox || !fw || !fh) return null;
+              const [x1, y1, x2, y2] = bbox;
+              const isSel = (sel?.cam === cam.id && String(sel?.id) === String(p.id)) ||
+                (sel?.global_id && p.global_id && String(sel.global_id) === String(p.global_id));
+              const camPrefix = cam.id === 'camera_01' ? 'C1' : 'C2';
+              const gidCode = p.global_code || (p.global_id ? `G${String(p.global_id).padStart(2, '0')}` : null);
+              return (
+                <div
+                  key={`${cam.id}-${p.id}`}
+                  onClick={() => onSelectPerson(cam.id, p.id, p.global_id)}
+                  className={`absolute border-2 rounded-sm cursor-pointer transition-colors ${
+                    isSel
+                      ? 'border-amber-400 bg-amber-400/15 ring-2 ring-amber-400/50 z-20'
+                      : p.is_merged
+                      ? 'border-purple-400 bg-purple-500/20 ring-1 ring-purple-400/40 shadow-[0_0_12px_rgba(168,85,247,0.35)] z-10'
+                      : 'border-emerald-500 bg-emerald-500/10'
+                  }`}
+                  style={{
+                    left: `${(x1 / fw) * 100}%`,
+                    top: `${(y1 / fh) * 100}%`,
+                    width: `${((x2 - x1) / fw) * 100}%`,
+                    height: `${((y2 - y1) / fh) * 100}%`,
+                  }}
+                >
+                  <span
+                    className={`absolute -top-5 left-0 text-[10px] font-mono font-bold px-1.5 py-px rounded whitespace-nowrap shadow-sm flex items-center gap-1 ${
+                      isSel
+                        ? 'bg-amber-500 text-slate-950'
+                        : p.is_merged
+                        ? 'bg-purple-600 text-white shadow-md'
+                        : 'bg-emerald-600 text-white'
+                    }`}
+                  >
+                    <span>{camPrefix}-{p.id}</span>
+                    {gidCode && (
+                      <span className={`px-1 rounded text-[9px] ${p.is_merged ? 'bg-purple-900 text-amber-300 font-extrabold' : 'bg-black/30 text-emerald-200'}`}>
+                        {gidCode}{p.is_merged ? ' · SAME PERSON (1)' : ''}
+                      </span>
+                    )}
+                    <span>· {confLabel(p)}</span>
+                  </span>
+                </div>
+              );
+            })}
+          </div>
         ) : (
           <div className="flex flex-col items-center gap-2 text-slate-500 text-xs p-8 text-center">
             <AlertTriangle className="w-6 h-6" />
@@ -156,57 +208,6 @@ export default function CameraPane({
             </button>
           </div>
         )}
-
-        {/* backend person boxes */}
-        {(people || []).map((p) => {
-          const fw = p.frame?.width || 0;
-          const fh = p.frame?.height || 0;
-          const bbox = Array.isArray(p.bbox) && p.bbox.length === 4 ? p.bbox : null;
-          if (!bbox || !fw || !fh) return null;
-          const [x1, y1, x2, y2] = bbox;
-          const isSel = (sel?.cam === cam.id && String(sel?.id) === String(p.id)) ||
-            (sel?.global_id && p.global_id && String(sel.global_id) === String(p.global_id));
-          const camPrefix = cam.id === 'camera_01' ? 'C1' : 'C2';
-          const gidCode = p.global_code || (p.global_id ? `G${String(p.global_id).padStart(2, '0')}` : null);
-          return (
-            <div
-              key={`${cam.id}-${p.id}`}
-              onClick={() => onSelectPerson(cam.id, p.id, p.global_id)}
-              className={`absolute border-2 rounded-sm cursor-pointer transition-colors ${
-                isSel
-                  ? 'border-amber-400 bg-amber-400/15 ring-2 ring-amber-400/50 z-20'
-                  : p.is_merged
-                  ? 'border-purple-400 bg-purple-500/20 ring-1 ring-purple-400/40 shadow-[0_0_12px_rgba(168,85,247,0.35)] z-10'
-                  : 'border-emerald-500 bg-emerald-500/10'
-              }`}
-              style={{
-                left: `${(x1 / fw) * 100}%`,
-                top: `${(y1 / fh) * 100}%`,
-                width: `${((x2 - x1) / fw) * 100}%`,
-                height: `${((y2 - y1) / fh) * 100}%`,
-              }}
-            >
-              <span
-                className={`absolute -top-5 left-0 text-[10px] font-mono font-bold px-1.5 py-px rounded whitespace-nowrap shadow-sm flex items-center gap-1 ${
-                  isSel
-                    ? 'bg-amber-500 text-slate-950'
-                    : p.is_merged
-                    ? 'bg-purple-600 text-white shadow-md'
-                    : 'bg-emerald-600 text-white'
-                }`}
-              >
-                <span>{camPrefix}-{p.id}</span>
-                {gidCode && (
-                  <span className={`px-1 rounded text-[9px] ${p.is_merged ? 'bg-purple-900 text-amber-300 font-extrabold' : 'bg-black/30 text-emerald-200'}`}>
-                    {gidCode}{p.is_merged ? ' · SAME PERSON (1)' : ''}
-                  </span>
-                )}
-                <span>· {confLabel(p)}</span>
-              </span>
-            </div>
-
-          );
-        })}
 
         {/* processing / error overlays */}
         {cam.video && cam.status?.state === 'processing' && (

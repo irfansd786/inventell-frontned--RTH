@@ -101,13 +101,17 @@ export default function LiveStoreMonitor() {
 
   const refreshFast = useCallback(async (id, t) => {
     try {
-      const [tr, mp] = await Promise.all([getTracks(id, t), getMap(id, t)]);
-      const people = onlyPeople(tr.people || []);
+      const results = await Promise.allSettled([getTracks(id, t), getMap(id, t)]);
+      const tr = results[0].status === 'fulfilled' ? results[0].value : null;
+      const mp = results[1].status === 'fulfilled' ? results[1].value : null;
+      const people = onlyPeople(tr?.people || []);
+      const mapPeople = onlyPeople(mp?.people || []);
+      const mapZones = mp?.zones || [];
+      
       patchCam(id, {
-        people,
-        mapPeople: onlyPeople(mp.people || []),
-        mapZones: mp.zones || [],
-        connected: !!mp.connected || people.length > 0 || tr.status === 'active',
+        ...(tr ? { people } : {}),
+        ...(mp ? { mapPeople, mapZones } : {}),
+        connected: !!mp?.connected || people.length > 0 || tr?.status === 'active' || tr?.connected,
       });
     } catch {
       /* ignore transient poll failures — per-camera state preserved */
@@ -117,18 +121,22 @@ export default function LiveStoreMonitor() {
   const refreshSlowCam = useCallback(async (id) => {
     const t = timeRef.current[id] || 0;
     try {
-      const [st, e, z, q] = await Promise.all([
+      const results = await Promise.allSettled([
         getStatus(id),
         getEvents(id, t),
         getZones(id, t),
         getQueue(id, t),
       ]);
+      const st = results[0].status === 'fulfilled' ? results[0].value : null;
+      const e = results[1].status === 'fulfilled' ? results[1].value : null;
+      const z = results[2].status === 'fulfilled' ? results[2].value : null;
+      const q = results[3].status === 'fulfilled' ? results[3].value : null;
+
       patchCam(id, {
-        status: st,
-        events: e.items || e || [],
-        zones: z.items || z || [],
-        queue: q || null,
-        connected: st?.state === 'ready' || st?.state === 'processing' || !!st?.has_video,
+        ...(st ? { status: st, connected: st?.state === 'ready' || st?.state === 'processing' || !!st?.has_video } : {}),
+        ...(e ? { events: e.items || e || [] } : {}),
+        ...(z ? { zones: z.items || z || [] } : {}),
+        ...(q ? { queue: q || null } : {}),
       });
       return st;
     } catch {
