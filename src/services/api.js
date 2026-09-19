@@ -19,12 +19,24 @@ export function buildFullUrl(endpoint) {
   return `${base}${ep}`;
 }
 
-async function getFirebaseTokenWithTimeout(timeoutMs = 1500) {
+let cachedFbToken = null;
+let cachedFbTokenExpiry = 0;
+
+async function getFirebaseTokenWithTimeout(timeoutMs = 2000) {
   if (!auth?.currentUser) return null;
+  const now = Date.now();
+  if (cachedFbToken && now < cachedFbTokenExpiry) {
+    return cachedFbToken;
+  }
   try {
     const tokenPromise = auth.currentUser.getIdToken();
     const timeoutPromise = new Promise((res) => setTimeout(() => res(null), timeoutMs));
-    return await Promise.race([tokenPromise, timeoutPromise]);
+    const token = await Promise.race([tokenPromise, timeoutPromise]);
+    if (token) {
+      cachedFbToken = token;
+      cachedFbTokenExpiry = now + 10 * 60 * 1000; // 10 minutes cache
+    }
+    return token;
   } catch {
     return null;
   }
@@ -33,7 +45,7 @@ async function getFirebaseTokenWithTimeout(timeoutMs = 1500) {
 async function buildHeaders(extra = {}, authEnabled = true) {
   const headers = { 'Content-Type': 'application/json', ...extra };
   if (authEnabled) {
-    const freshToken = await getFirebaseTokenWithTimeout(1500);
+    const freshToken = await getFirebaseTokenWithTimeout(2000);
     if (freshToken) {
       setAuthTokens({ accessToken: freshToken });
       headers.Authorization = `Bearer ${freshToken}`;
@@ -61,7 +73,7 @@ export class ApiError extends Error {
 
 export async function request(
   endpoint,
-  { method = 'GET', body, headers, auth = true, timeout = 5000, cache = false } = {}
+  { method = 'GET', body, headers, auth = true, timeout = 20000, cache = false } = {}
 ) {
   const fullUrl = buildFullUrl(endpoint);
   const cacheKey = `${method}:${fullUrl}`;

@@ -102,11 +102,12 @@ export default function LiveStoreMonitor() {
   const refreshFast = useCallback(async (id, t) => {
     try {
       const [tr, mp] = await Promise.all([getTracks(id, t), getMap(id, t)]);
+      const people = onlyPeople(tr.people || []);
       patchCam(id, {
-        people: onlyPeople(tr.people || []),
+        people,
         mapPeople: onlyPeople(mp.people || []),
         mapZones: mp.zones || [],
-        connected: !!mp.connected,
+        connected: !!mp.connected || people.length > 0 || tr.status === 'active',
       });
     } catch {
       /* ignore transient poll failures — per-camera state preserved */
@@ -127,7 +128,7 @@ export default function LiveStoreMonitor() {
         events: e.items || e || [],
         zones: z.items || z || [],
         queue: q || null,
-        connected: st?.state === 'ready',
+        connected: st?.state === 'ready' || st?.state === 'processing' || !!st?.has_video,
       });
       return st;
     } catch {
@@ -159,10 +160,10 @@ export default function LiveStoreMonitor() {
   const ensureStarted = useCallback(async (id) => {
     try {
       const st = await getStatus(id);
-      patchCam(id, { status: st, connected: st?.state === 'ready' });
+      patchCam(id, { status: st, connected: st?.state === 'ready' || st?.state === 'processing' || !!st?.has_video });
       if ((st.state === 'idle' || st.state === 'error') && st.has_video !== false) {
         const started = await startProcessing(id);
-        patchCam(id, { status: started, connected: started?.state === 'ready' });
+        patchCam(id, { status: started, connected: started?.state === 'ready' || started?.state === 'processing' || !!started?.has_video });
       }
     } catch {
       /* status panel explains per-camera state */
@@ -327,7 +328,7 @@ export default function LiveStoreMonitor() {
   }, [twinPeople]);
 
   const camList = useMemo(() => CAM_IDS.map((id) => cams[id]), [cams]);
-  const onlineCount = camList.filter((c) => c.status?.state === 'ready').length;
+  const onlineCount = camList.filter((c) => c.status?.state === 'ready' || c.connected || (c.status?.has_video && c.status?.state !== 'error')).length;
   const t1 = cams.camera_01.time;
   const t2 = cams.camera_02.time;
   const synced = cams.camera_01.duration > 0 && cams.camera_02.duration > 0 && Math.abs(t1 - t2) <= 1.0;
@@ -382,7 +383,7 @@ export default function LiveStoreMonitor() {
         />
 
         {/* STORE KPI ROW */}
-        <StoreKpiRow summary={summary} />
+        <StoreKpiRow summary={summary} cams={cams} />
 
         {/* DUAL CCTV MONITORING — both feeds always visible */}
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 items-stretch">

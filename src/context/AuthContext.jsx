@@ -37,8 +37,8 @@ export function AuthProvider({ children }) {
   const fetchProfile = useCallback(async (fbUser) => {
     if (!fbUser) return null;
     try {
-      // Backend profile endpoint: GET /api/staff/me with short timeout
-      const data = await apiGet('/staff/me', { timeout: 2500, cache: true });
+      // Backend profile endpoint: GET /api/staff/me with resilient timeout
+      const data = await apiGet('/staff/me', { timeout: 15000, cache: true });
       if (data && data.uid) {
         try {
           localStorage.setItem(CACHED_PROFILE_KEY, JSON.stringify(data));
