@@ -43,9 +43,14 @@ import { onlyPeople } from '../../components/monitoring/dual/utils';
 const CAM_IDS = ['camera_01', 'camera_02'];
 const TRAIL_CAP = 80;
 
+const CAM_DEFAULT_VIDEO = {
+  camera_01: { camera_id: 'camera_01', filename: 'camera_01.mp4', kind: 'test', fps: 30, width: 1920, height: 1080 },
+  camera_02: { camera_id: 'camera_02', filename: 'camera_02.mp4', kind: 'test', fps: 30, width: 1920, height: 1080 },
+};
+
 const blankCam = (id) => ({
   id,
-  video: null,
+  video: CAM_DEFAULT_VIDEO[id] || { camera_id: id, filename: `${id}.mp4`, kind: 'test' },
   status: null,
   people: [],
   mapPeople: [],
@@ -172,8 +177,8 @@ export default function LiveStoreMonitor() {
       const v = await listVideos();
       const items = v.items || [];
       for (const id of CAM_IDS) {
-        const meta = items.find((m) => m.camera_id === id) || null;
-        patchCam(id, { video: meta });
+        const meta = items.find((m) => m.camera_id === id);
+        patchCam(id, { video: meta ? { ...CAM_DEFAULT_VIDEO[id], ...meta } : CAM_DEFAULT_VIDEO[id] });
       }
       await Promise.all(CAM_IDS.map((id) => ensureStarted(id)));
       await refreshSlow();
@@ -226,10 +231,10 @@ export default function LiveStoreMonitor() {
   const handleRetry = useCallback(async (id) => {
     try {
       const v = await listVideos();
-      const meta = (v.items || []).find((m) => m.camera_id === id) || null;
-      patchCam(id, { video: meta });
+      const meta = (v.items || []).find((m) => m.camera_id === id);
+      patchCam(id, { video: meta ? { ...CAM_DEFAULT_VIDEO[id], ...meta } : CAM_DEFAULT_VIDEO[id] });
     } catch {
-      /* keep existing video state */
+      patchCam(id, { video: CAM_DEFAULT_VIDEO[id] });
     }
     await ensureStarted(id);
     await refreshSlowCam(id);

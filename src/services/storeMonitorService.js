@@ -12,7 +12,9 @@ function headers(extra = {}) {
 const BASE = '/store-monitor';
 
 export function streamUrl(cameraId) {
-  return buildFullUrl(`${BASE}/video/${cameraId}`);
+  const base = import.meta.env.BASE_URL || '/';
+  const prefix = base.endsWith('/') ? base : `${base}/`;
+  return `${prefix}videos/${cameraId}.mp4`;
 }
 
 export async function listVideos() {
